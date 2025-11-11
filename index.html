@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="BME680 Air Quality Monitor - Real-time IAQ monitoring">
+    <title>IAQ Monitor - BME680</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?￯ﾸﾏ</text></svg>">
+    
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        #root { min-height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Lucide Icons as SVG components
+        const Bell = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+        );
+        
+        const BellOff = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+                <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+                <path d="M18 8a6 6 0 0 0-9.33-5"/>
+                <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+        );
+        
+        const Wifi = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                <line x1="12" y1="20" x2="12.01" y2="20"/>
+            </svg>
+        );
+        
+        const WifiOff = () => (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="2" y1="2" x2="22" y2="22"/>
+                <path d="M8.5 16.5a5 5 0 0 1 7 0"/>
+                <path d="M2 8.82a15 15 0 0 1 4.17-2.65"/>
+                <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/>
+                <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/>
+                <path d="M5 13a10 10 0 0 1 5.24-2.76"/>
+                <line x1="12" y1="20" x2="12.01" y2="20"/>
+            </svg>
+        );
+        
+        const Settings = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6"/>
+                <path d="m4.93 4.93 4.24 4.24m5.66 5.66 4.24 4.24"/>
+                <path d="M1 12h6m6 0h6"/>
+                <path d="m4.93 19.07 4.24-4.24m5.66-5.66 4.24-4.24"/>
+            </svg>
+        );
+        
+        const RefreshCw = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+        );
+        
+        const AlertTriangle = () => (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+        );
+
+        // IAQ Classification
+        const IAQ_LEVELS = [
+          { value: 50, label: 'Excellent', color: '#4CAF50', bgColor: '#E8F5E9' },
+          { value: 100, label: 'Good', color: '#8BC34A', bgColor: '#F1F8E9' },
+          { value: 150, label: 'Lightly Polluted', color: '#CDDC39', bgColor: '#F9FBE7' },
+          { value: 200, label: 'Moderately Polluted', color: '#FFC107', bgColor: '#FFF8E1' },
+          { value: 250, label: 'Heavily Polluted', color: '#FF9800', bgColor: '#FFF3E0' },
+          { value: 350, label: 'Severely Polluted', color: '#F44336', bgColor: '#FFEBEE' },
+          { value: 500, label: 'Extremely Polluted', color: '#B71C1C', bgColor: '#FFCDD2' }
+        ];
+
+        function App() {
+          const [deviceIp, setDeviceIp] = useState(localStorage.getItem('deviceIp') || '192.168.1.100');
+          const [isConnected, setIsConnected] = useState(false);
+          const [sensorData, setSensorData] = useState(null);
+          const [currentIaqLevel, setCurrentIaqLevel] = useState(null);
+          const [alarmEnabled, setAlarmEnabled] = useState(localStorage.getItem('alarmEnabled') === 'true');
+          const [alarmThreshold, setAlarmThreshold] = useState(localStorage.getItem('alarmThreshold') || 'Lightly Polluted');
+          const [isAlarming, setIsAlarming] = useState(false);
+          const [showSettings, setShowSettings] = useState(false);
+          const [lastUpdate, setLastUpdate] = useState(null);
+          const [error, setError] = useState(null);
+
+          // Save settings to localStorage
+          useEffect(() => {
+            localStorage.setItem('deviceIp', deviceIp);
+          }, [deviceIp]);
+
+          useEffect(() => {
+            localStorage.setItem('alarmEnabled', alarmEnabled);
+          }, [alarmEnabled]);
+
+          useEffect(() => {
+            localStorage.setItem('alarmThreshold', alarmThreshold);
+          }, [alarmThreshold]);
+
+          // Get IAQ level based on value
+          const getIaqLevel = (iaq) => {
+            if (!iaq) return null;
+            for (let i = IAQ_LEVELS.length - 1; i >= 0; i--) {
+              if (iaq > IAQ_LEVELS[i].value) {
+                return IAQ_LEVELS[i + 1] || IAQ_LEVELS[i];
+              }
+            }
+            return IAQ_LEVELS[0];
+          };
+
+          // Fetch sensor data
+          const fetchSensorData = async () => {
+            try {
+              const response = await fetch(`http://${deviceIp}/readings`);
+              if (!response.ok) throw new Error('Failed to fetch');
+              
+              const data = await response.json();
+              
+              if (!data.error) {
+                setSensorData(data);
+                const level = getIaqLevel(data.iaq);
+                setCurrentIaqLevel(level);
+                setIsConnected(true);
+                setError(null);
+                setLastUpdate(new Date());
+                
+                // Check alarm
+                if (alarmEnabled) {
+                  checkAlarm(level);
+                }
+              } else {
+                setError('Sensor error');
+                setIsConnected(false);
+              }
+            } catch (err) {
+              setError('Connection failed');
+              setIsConnected(false);
+              setSensorData(null);
+            }
+          };
+
+          // Check if alarm should trigger
+          const checkAlarm = (currentLevel) => {
+            if (!currentLevel) return;
+            
+            const thresholdIndex = IAQ_LEVELS.findIndex(l => l.label === alarmThreshold);
+            const currentIndex = IAQ_LEVELS.findIndex(l => l.label === currentLevel.label);
+            
+            if (currentIndex >= thresholdIndex) {
+              if (!isAlarming) {
+                setIsAlarming(true);
+                if ('vibrate' in navigator) {
+                  navigator.vibrate([200, 100, 200]);
+                }
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification('Air Quality Alert!', {
+                    body: `IAQ has reached ${currentLevel.label}`,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⚠️</text></svg>'
+                  });
+                }
+              }
+            } else {
+              setIsAlarming(false);
+            }
+          };
+
+          // Request notification permission
+          useEffect(() => {
+            if ('Notification' in window && Notification.permission === 'default') {
+              Notification.requestPermission();
+            }
+          }, []);
+
+          // Auto-refresh every 3 seconds
+          useEffect(() => {
+            fetchSensorData();
+            const interval = setInterval(fetchSensorData, 3000);
+            return () => clearInterval(interval);
+          }, [deviceIp, alarmEnabled, alarmThreshold]);
+
+          return (
+            <div style={{
+              minHeight: '100vh',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              padding: '16px',
+              fontFamily: 'system-ui, -apple-system, sans-serif'
+            }}>
+              {/* Header */}
+              <div style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '16px',
+                marginBottom: '16px',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>
+                    ?￯ﾸﾏ IAQ Monitor
+                  </h1>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => fetchSensorData()}
+                      style={{
+                        padding: '8px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#667eea',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <RefreshCw />
+                    </button>
+                    <button
+                      onClick={() => setShowSettings(!showSettings)}
+                      style={{
+                        padding: '8px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#667eea',
+                        color: 'white',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Settings />
+                    </button>
+                  </div>
+                </div>
+                
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginTop: '12px',
+                  fontSize: '14px',
+                  color: isConnected ? '#4CAF50' : '#F44336'
+                }}>
+                  {isConnected ? <Wifi /> : <WifiOff />}
+                  <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
+                  {lastUpdate && (
+                    <span style={{ color: '#999', marginLeft: 'auto', fontSize: '12px' }}>
+                      {lastUpdate.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+                
+                {error && (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    background: '#FFEBEE',
+                    color: '#C62828',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}>
+                    ⚠️ {error}
+                  </div>
+                )}
+              </div>
+
+              {/* Settings Panel */}
+              {showSettings && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: '16px',
+                  marginBottom: '16px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', color: '#333' }}>
+                    Settings
+                  </h2>
+                  
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', color: '#666' }}>
+                      Device IP Address
+                    </label>
+                    <input
+                      type="text"
+                      value={deviceIp}
+                      onChange={(e) => setDeviceIp(e.target.value)}
+                      placeholder="192.168.1.100"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid #ddd',
+                        fontSize: '14px',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Main IAQ Display */}
+              {sensorData && currentIaqLevel && (
+                <div style={{
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  marginBottom: '16px',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                      fontSize: '72px',
+                      fontWeight: 'bold',
+                      color: currentIaqLevel.color,
+                      marginBottom: '8px'
+                    }}>
+                      {sensorData.iaq.toFixed(0)}
+                    </div>
+                    
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '8px 16px',
+                      borderRadius: '12px',
+                      background: currentIaqLevel.bgColor,
+                      color: currentIaqLevel.color,
+                      fontSize: '18px',
+                      fontWeight: 'bold',
+                      marginBottom: '24px'
+                    }}>
+                      {currentIaqLevel.label}
+                    </div>
+                    
+                    <div style={{ marginTop: '24px' }}>
+                      <div style={{
+                        height: '8px',
+                        background: 'linear-gradient(to right, #4CAF50, #8BC34A, #CDDC39, #FFC107, #FF9800, #F44336, #B71C1C)',
+                        borderRadius: '4px',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          left: `${Math.min((sensorData.iaq / 500) * 100, 100)}%`,
+                          top: '-8px',
+                          width: '24px',
+                          height: '24px',
+                          background: 'white',
+                          border: `3px solid ${currentIaqLevel.color}`,
+                          borderRadius: '50%',
+                          transform: 'translateX(-50%)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        marginTop: '8px',
+                        fontSize: '12px',
+                        color: '#999'
+                      }}>
+                        <span>0</span>
+                        <span>500</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Other Sensor Data */}
+              {sensorData && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '12px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Temperature</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#FF5733' }}>
+                      {sensorData.temperature.toFixed(1)}°C
+                    </div>
+                  </div>
+                  
+                  <div style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Humidity</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1E90FF' }}>
+                      {sensorData.humidity.toFixed(1)}%
+                    </div>
+                  </div>
+                  
+                  <div style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Pressure</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2ECC71' }}>
+                      {sensorData.pressure.toFixed(0)} hPa
+                    </div>
+                  </div>
+                  
+                  <div style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Gas</div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#F39C12' }}>
+                      {sensorData.gas.toFixed(0)} kΩ
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Alarm Settings */}
+              <div style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {alarmEnabled ? <Bell /> : <BellOff />}
+                    <h2 style={{ margin: 0, fontSize: '18px', color: '#333' }}>
+                      Alarm Settings
+                    </h2>
+                  </div>
+                  
+                  <label style={{
+                    position: 'relative',
+                    display: 'inline-block',
+                    width: '50px',
+                    height: '28px'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={alarmEnabled}
+                      onChange={(e) => {
+                        setAlarmEnabled(e.target.checked);
+                        if (!e.target.checked) setIsAlarming(false);
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      cursor: 'pointer',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: alarmEnabled ? '#667eea' : '#ccc',
+                      borderRadius: '28px',
+                      transition: '0.3s'
+                    }}>
+                      <span style={{
+                        position: 'absolute',
+                        content: '',
+                        height: '20px',
+                        width: '20px',
+                        left: alarmEnabled ? '26px' : '4px',
+                        bottom: '4px',
+                        background: 'white',
+                        borderRadius: '50%',
+                        transition: '0.3s'
+                      }} />
+                    </span>
+                  </label>
+                </div>
+                
+                {alarmEnabled && (
+                  <>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{
+                        display: 'block',
+                        marginBottom: '8px',
+                        fontSize: '14px',
+                        color: '#666'
+                      }}>
+                        Alert when IAQ reaches:
+                      </label>
+                      <select
+                        value={alarmThreshold}
+                        onChange={(e) => setAlarmThreshold(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: '1px solid #ddd',
+                          fontSize: '14px',
+                          background: 'white',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {IAQ_LEVELS.slice(2).map((level) => (
+                          <option key={level.label} value={level.label}>
+                            {level.label} (IAQ {level.value}+)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {isAlarming && (
+                      <div style={{
+                        padding: '16px',
+                        background: '#FFEBEE',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        animation: 'pulse 1s infinite'
+                      }}>
+                        <AlertTriangle />
+                        <div>
+                          <div style={{ fontWeight: 'bold', color: '#C62828', marginBottom: '4px' }}>
+                            ⚠️ Air Quality Alert!
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#C62828' }}>
+                            IAQ has reached {currentIaqLevel?.label}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!isAlarming && currentIaqLevel && (
+                      <div style={{
+                        padding: '12px',
+                        background: '#E8F5E9',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        color: '#2E7D32',
+                        textAlign: 'center'
+                      }}>
+                        ✓ Air quality is acceptable
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              <style>{`
+                @keyframes pulse {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0.7; }
+                }
+              `}</style>
+            </div>
+          );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
