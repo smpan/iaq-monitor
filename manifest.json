@@ -1,22 +1,71 @@
 {
-  "name": "BME680 IAQ Monitor",
+  "name": "IAQ Monitor - Indoor Air Quality",
   "short_name": "IAQ Monitor",
-  "description": "Real-time Indoor Air Quality monitoring with BME680 sensor",
-  "start_url": ".",
+  "description": "Real-time Indoor Air Quality monitoring with advanced alerts and history tracking",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#667eea",
   "theme_color": "#667eea",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["health", "utilities", "productivity"],
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?￯ﾸﾏ</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23667eea'/><text y='70' x='50' text-anchor='middle' font-size='50' fill='white'>🌡️</text></svg>",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>?￯ﾸﾏ</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23667eea'/><text y='70' x='50' text-anchor='middle' font-size='50' fill='white'>🌡️</text></svg>",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='540' height='720' viewBox='0 0 540 720'><rect width='540' height='720' fill='%23667eea'/><text x='270' y='360' text-anchor='middle' font-size='40' fill='white'>IAQ Monitor</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "View IAQ",
+      "short_name": "IAQ",
+      "description": "Check current air quality",
+      "url": "./index.html",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌡️</text></svg>",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "Configure monitor settings",
+      "url": "./index.html?settings=true",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "display_override": ["window-controls-overlay", "standalone"],
+  "prefer_related_applications": false
 }
